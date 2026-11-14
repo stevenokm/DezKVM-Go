@@ -1,0 +1,52 @@
+
+# syntax=docker/dockerfile:1
+
+FROM golang:1.26-bookworm AS builder
+
+# CGO build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      gcc \
+      libc6-dev \
+      linux-libc-dev \
+      && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# IMPORTANT: go4vl requires CGO
+ENV CGO_ENABLED=1 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    CC=gcc
+
+RUN go build \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/dezkvm-ipkvm .
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      v4l-utils \
+      alsa-utils \
+      && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder \
+    /out/dezkvm-ipkvm \
+    /usr/local/bin/dezkvm-ipkvm
+
+USER 0:0
+
+EXPOSE 8080/tcp
+
+STOPSIGNAL SIGTERM
+
+ENTRYPOINT ["/usr/local/bin/dezkvm-ipkvm"]
+

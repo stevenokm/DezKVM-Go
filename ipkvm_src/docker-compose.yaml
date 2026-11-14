@@ -1,0 +1,40 @@
+services:
+  ipkvm:
+    build:
+      context: .
+      dockerfile: Dockerfile.txt
+      network: host
+
+    image: dezkvm-go-ipkvm:ds418play
+    platform: linux/amd64
+    container_name: dezkvm-ipkvm
+
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+    # Access root-owned video devices
+    user: "0:0"
+
+    devices:
+      - "${VIDEO_DEVICE:-/dev/video0}:${VIDEO_DEVICE:-/dev/video0}:rwm"
+      - "${SERIAL_DEVICE:-/dev/ttyUSB0}:${SERIAL_DEVICE:-/dev/ttyUSB0}:rwm"
+
+    volumes:
+      - /sys:/sys:ro
+      - /dev/snd:/dev/snd
+
+    ports:
+      - 18080:8080/tcp
+
+    security_opt:
+      - no-new-privileges:true
+
+    command:
+      - -port
+      - ":8080"
+      - -video
+      - "${VIDEO_DEVICE:-/dev/video0}"
+      - -tty
+      - "${SERIAL_DEVICE:-/dev/ttyUSB0}"
+      - -baud
+      - "${HID_BAUD:-115200}"
